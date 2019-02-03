@@ -24,10 +24,16 @@ module.exports = {
       gas: 7990000,
       gasPrice: 22000000000 // Specified in Wei
     },
+    kovan: {
+      provider: new HDWalletProvider(process.env.MNEMONIC, "https://kovan.infura.io/"),
+      network_id: "42",
+      gas: 7200000,
+      gasPrice: 22000000000 // Specified in Wei
+    },
     coverage: {
       host: "localhost",
       network_id: "*",
-      port: 9328,
+      port: 8525,
       gas: 10000000000000,
       gasPrice: 0x01,
     },

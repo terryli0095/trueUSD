@@ -1,7 +1,7 @@
 import assertRevert from './helpers/assertRevert'
 import burnableTokenTests from './token/BurnableToken'
 
-function burnableTokenWithBoundsTests([owner, oneHundred, anotherAccount], transfersToZeroBecomeBurns) {
+function burnableTokenWithBoundsTests([owner, oneHundred, anotherAccount], transfersToZeroBecomeBurns = false) {
     describe('--BurnableTokenWithBounds Tests--', function () {
         describe('non-restrictive burn bounds', function () {
             beforeEach(async function () {
@@ -15,9 +15,9 @@ function burnableTokenWithBoundsTests([owner, oneHundred, anotherAccount], trans
             it('sets the bounds', async function () {
                 await this.token.setBurnBounds(10*10**18, 20*10**18, { from: owner })
 
-                const min = await this.token.burnMin()
+                const min = await this.token.burnMin.call()
                 assert.equal(min, 10*10**18)
-                const max = await this.token.burnMax()
+                const max = await this.token.burnMax.call()
                 assert.equal(max, 20*10**18)
             })
 
@@ -42,11 +42,11 @@ function burnableTokenWithBoundsTests([owner, oneHundred, anotherAccount], trans
         describe('restrictive burn bounds', function () {
             it("allows burns within bounds and reverts others", async function () {
                 await this.token.setBurnBounds(10*10**18, 20*10**18, { from: owner })
-                await assertRevert(this.token.burn(9*10**18, "burnNote", { from: oneHundred }))
-                await assertRevert(this.token.burn(21*10**18, "burnNote", { from: oneHundred }))
-                await this.token.burn(10*10**18, "burnNote", { from: oneHundred })
-                await this.token.burn(15*10**18, "burnNote", { from: oneHundred })
-                await this.token.burn(20*10**18, "burnNote", { from: oneHundred })
+                await assertRevert(this.token.burn(9*10**18, { from: oneHundred }))
+                await assertRevert(this.token.burn(21*10**18, { from: oneHundred }))
+                await this.token.burn(10*10**18, { from: oneHundred })
+                await this.token.burn(15*10**18, { from: oneHundred })
+                await this.token.burn(20*10**18, { from: oneHundred })
             })
         })
 

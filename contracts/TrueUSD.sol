@@ -1,106 +1,75 @@
 pragma solidity ^0.4.23;
 
-import "./modularERC20/ModularPausableToken.sol";
-import "openzeppelin-solidity/contracts/ownership/NoOwner.sol";
+import "./modularERC20/ModularMintableToken.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./CanDelegate.sol";
 import "./BurnableTokenWithBounds.sol";
-import "./CompliantToken.sol";
-import "./TokenWithFees.sol";
-import "./StandardDelegate.sol";
-import "./WithdrawalToken.sol";
+import "./CompliantDepositTokenWithHook.sol";
+import "./RedeemableToken.sol";
+import "./GasRefundToken.sol";
+import "./DelegateERC20.sol";
 
-// This is the top-level ERC20 contract, but most of the interesting functionality is
-// inherited - see the documentation on the corresponding contracts.
-contract TrueUSD is ModularPausableToken, NoOwner, BurnableTokenWithBounds, CompliantToken, TokenWithFees, WithdrawalToken, StandardDelegate, CanDelegate {
+/** @title TrueUSD
+* @dev This is the top-level ERC20 contract, but most of the interesting functionality is
+* inherited - see the documentation on the corresponding contracts.
+*/
+contract TrueUSD is 
+ModularMintableToken, 
+CompliantDepositTokenWithHook,
+BurnableTokenWithBounds, 
+RedeemableToken,
+DelegateERC20,
+GasRefundToken {
     using SafeMath for *;
 
-    string public name = "TrueUSD";
-    string public symbol = "TUSD";
-    uint8 public constant decimals = 18;
-    uint8 public constant rounding = 2;
+    uint8 public constant DECIMALS = 18;
+    uint8 public constant ROUNDING = 2;
 
     event ChangeTokenName(string newName, string newSymbol);
 
-    constructor() public {
-        totalSupply_ = 0;
-        burnMin = 10000 * 10**uint256(decimals);
-        burnMax = 20000000 * 10**uint256(decimals);
+    function decimals() public pure returns (uint8) {
+        return DECIMALS;
     }
 
-    function changeTokenName(string _name, string _symbol) onlyOwner public {
+    function rounding() public pure returns (uint8) {
+        return ROUNDING;
+    }
+
+    function changeTokenName(string _name, string _symbol) external onlyOwner {
         name = _name;
         symbol = _symbol;
         emit ChangeTokenName(_name, _symbol);
     }
 
-    // disable most onlyOwner functions upon delegation, since the owner should
-    // use the new version of the contract
-    modifier onlyWhenNoDelegate() {
-        require(address(delegate) == address(0),"a delegate contract exist");
-        _;
-    }
-
-    function mint(address _to, uint256 _value) onlyWhenNoDelegate public returns (bool) {
-        super.mint(_to, _value);
-    }
-    function setBalanceSheet(address _sheet) onlyWhenNoDelegate public returns (bool) {
-        return super.setBalanceSheet(_sheet);
-    }
-    function setAllowanceSheet(address _sheet) onlyWhenNoDelegate public returns (bool) {
-        return super.setAllowanceSheet(_sheet);
-    }
-    function setBurnBounds(uint256 _min, uint256 _max) onlyWhenNoDelegate public {
-        super.setBurnBounds(_min, _max);
-    }
-    function setRegistry(Registry _registry) onlyWhenNoDelegate public {
-        super.setRegistry(_registry);
-    }
-    function changeStaker(address _newStaker) onlyWhenNoDelegate public {
-        super.changeStaker(_newStaker);
-    }
-    function wipeBlacklistedAccount(address _account) onlyWhenNoDelegate public {
-        super.wipeBlacklistedAccount(_account);
-    }
-    function changeStakingFees(
-        uint256 _transferFeeNumerator,
-        uint256 _transferFeeDenominator,
-        uint256 _mintFeeNumerator,
-        uint256 _mintFeeDenominator,
-        uint256 _mintFeeFlat,
-        uint256 _burnFeeNumerator,
-        uint256 _burnFeeDenominator,
-        uint256 _burnFeeFlat
-    ) onlyWhenNoDelegate public {
-        super.changeStakingFees(
-            _transferFeeNumerator,
-            _transferFeeDenominator,
-            _mintFeeNumerator,
-            _mintFeeDenominator,
-            _mintFeeFlat,
-            _burnFeeNumerator,
-            _burnFeeDenominator,
-            _burnFeeFlat
-        );
-    }
-    function burnAllArgs(address _burner, uint256 _value ,string _note) internal {
-      //round down burn amount to cent
-      uint burnAmount = _value / (10 **uint256(decimals-rounding)) * (10 **uint256(decimals-rounding));
-      super.burnAllArgs(_burner, burnAmount, _note);
-    }
-
-
-    // Alternatives to the normal NoOwner functions in case this contract's owner
-    // can't own ether or tokens.
-    // Note that we *do* inherit reclaimContract from NoOwner: This contract
-    // does have to own contracts, but it also has to be able to relinquish them.
+    /**  
+    *@dev send all eth balance in the TrueUSD contract to another address
+    */
     function reclaimEther(address _to) external onlyOwner {
         _to.transfer(address(this).balance);
     }
 
-    function reclaimToken(ERC20Basic token, address _to) external onlyOwner {
+    /**  
+    *@dev send all token balance of an arbitary erc20 token
+    in the TrueUSD contract to another address
+    */
+    function reclaimToken(ERC20 token, address _to) external onlyOwner {
         uint256 balance = token.balanceOf(this);
-        token.safeTransfer(_to, balance);
+        token.transfer(_to, balance);
     }
 
+    function paused() public pure returns (bool) {
+        return false;
+    }
+
+    /**  
+    *@dev allows owner of TrueUSD to gain ownership of any contract that TrueUSD currently owns
+    */
+    function reclaimContract(Ownable _ownable) external onlyOwner {
+        _ownable.transferOwnership(owner);
+    }
+
+    function _burnAllArgs(address _burner, uint256 _value) internal {
+        //round down burn amount so that the lowest amount allowed is 1 cent
+        uint burnAmount = _value.div(10 ** uint256(DECIMALS - ROUNDING)).mul(10 ** uint256(DECIMALS - ROUNDING));
+        super._burnAllArgs(_burner, burnAmount);
+    }
 }
