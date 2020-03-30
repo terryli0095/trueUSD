@@ -1,4 +1,6 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.5.13;
+
+import "@trusttoken/registry/contracts/mocks/RegistryMock.sol";
 
 // Source: openzeppelin-solidity/contracts/mocks/ForceEther.sol
 // @title Force Ether into a contract.
@@ -10,7 +12,7 @@ contract ForceEther {
     constructor() public payable { }
 
     function destroyAndSend(address _recipient) public {
-        selfdestruct(_recipient);
+        selfdestruct(address(uint160(_recipient)));
     }
 }
 

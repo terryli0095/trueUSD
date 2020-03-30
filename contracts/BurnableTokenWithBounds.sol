@@ -1,13 +1,13 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.5.13;
 
-import "./modularERC20/ModularMintableToken.sol";
+import "./modularERC20/ModularBurnableToken.sol";
 
 /**
  * @title Burnable Token WithBounds
  * @dev Burning functions as redeeming money from the system. The platform will keep track of who burns coins,
  * and will send them back the equivalent amount of money (rounded down to the nearest cent).
  */
-contract BurnableTokenWithBounds is ModularMintableToken {
+contract BurnableTokenWithBounds is ModularBurnableToken {
 
     event SetBurnBounds(uint256 newMin, uint256 newMax);
 
@@ -23,7 +23,7 @@ contract BurnableTokenWithBounds is ModularMintableToken {
     //flexibility since burning could also be as good as disabled
     //by setting the minimum extremely high, and we don't want to lock
     //in any particular cap for the minimum)
-    function setBurnBounds(uint256 _min, uint256 _max) public onlyOwner {
+    function setBurnBounds(uint256 _min, uint256 _max) external onlyOwner {
         require(_min <= _max, "min > max");
         burnMin = _min;
         burnMax = _max;

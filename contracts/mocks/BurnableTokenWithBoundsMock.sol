@@ -1,11 +1,10 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.5.13;
 
 import "../BurnableTokenWithBounds.sol";
 
 contract BurnableTokenWithBoundsMock is BurnableTokenWithBounds {
     constructor(address initialAccount, uint initialBalance) public {
-        balances = new BalanceSheet();
-        balances.setBalance(initialAccount, initialBalance);
+        _setBalance(initialAccount,  initialBalance);
         totalSupply_ = initialBalance;
     }
 }

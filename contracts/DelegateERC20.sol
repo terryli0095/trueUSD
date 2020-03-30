@@ -1,14 +1,14 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.5.13;
 
-import "./modularERC20/ModularStandardToken.sol";
+import "./CompliantDepositTokenWithHook.sol";
 
 /** @title DelegateERC20
 Accept forwarding delegation calls from the old TrueUSD (V1) contract. This way the all the ERC20
 functions in the old contract still works (except Burn). 
 */
-contract DelegateERC20 is ModularStandardToken {
+contract DelegateERC20 is CompliantDepositTokenWithHook {
 
-    address public constant DELEGATE_FROM = 0x8dd5fbCe2F6a956C3022bA3663759011Dd51e73E;
+    address constant DELEGATE_FROM = 0x8dd5fbCe2F6a956C3022bA3663759011Dd51e73E;
     
     modifier onlyDelegateFrom() {
         require(msg.sender == DELEGATE_FROM);
@@ -20,7 +20,7 @@ contract DelegateERC20 is ModularStandardToken {
     }
 
     function delegateBalanceOf(address who) public view returns (uint256) {
-        return balanceOf(who);
+        return _getBalance(who);
     }
 
     function delegateTransfer(address to, uint256 value, address origSender) public onlyDelegateFrom returns (bool) {
@@ -29,7 +29,7 @@ contract DelegateERC20 is ModularStandardToken {
     }
 
     function delegateAllowance(address owner, address spender) public view returns (uint256) {
-        return allowance(owner, spender);
+        return _getAllowance(owner, spender);
     }
 
     function delegateTransferFrom(address from, address to, uint256 value, address origSender) public onlyDelegateFrom returns (bool) {
@@ -43,12 +43,12 @@ contract DelegateERC20 is ModularStandardToken {
     }
 
     function delegateIncreaseApproval(address spender, uint addedValue, address origSender) public onlyDelegateFrom returns (bool) {
-        _increaseApprovalAllArgs(spender, addedValue, origSender);
+        _increaseAllowanceAllArgs(spender, addedValue, origSender);
         return true;
     }
 
     function delegateDecreaseApproval(address spender, uint subtractedValue, address origSender) public onlyDelegateFrom returns (bool) {
-        _decreaseApprovalAllArgs(spender, subtractedValue, origSender);
+        _decreaseAllowanceAllArgs(spender, subtractedValue, origSender);
         return true;
     }
 }

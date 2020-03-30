@@ -1,6 +1,7 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.5.13;
 
 import "./ModularBasicToken.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 /**
  * @title Standard ERC20 token
@@ -10,37 +11,13 @@ import "./ModularBasicToken.sol";
  * @dev Based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
  */
 contract ModularStandardToken is ModularBasicToken {
+    using SafeMath for uint256;
     
-    event AllowanceSheetSet(address indexed sheet);
     event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    uint256 constant INFINITE_ALLOWANCE = 0xfe00000000000000000000000000000000000000000000000000000000000000;
+
     
-    /**
-    * @dev claim ownership of the AllowanceSheet contract
-    * @param _sheet The address to of the AllowanceSheet to claim.
-    */
-    function setAllowanceSheet(address _sheet) public onlyOwner returns(bool) {
-        allowances = AllowanceSheet(_sheet);
-        allowances.claimOwnership();
-        emit AllowanceSheetSet(_sheet);
-        return true;
-    }
-
-    /**
-     * @dev Transfer tokens from one address to another
-     * @param _from address The address which you want to send tokens from
-     * @param _to address The address which you want to transfer to
-     * @param _value uint256 the amount of tokens to be transferred
-     */
-    function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
-        _transferFromAllArgs(_from, _to, _value, msg.sender);
-        return true;
-    }
-
-    function _transferFromAllArgs(address _from, address _to, uint256 _value, address _spender) internal {
-        _transferAllArgs(_from, _to, _value);
-        allowances.subAllowance(_from, _spender, _value);
-    }
-
     /**
      * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
      *
@@ -57,18 +34,8 @@ contract ModularStandardToken is ModularBasicToken {
     }
 
     function _approveAllArgs(address _spender, uint256 _value, address _tokenHolder) internal {
-        allowances.setAllowance(_tokenHolder, _spender, _value);
+        _setAllowance(_tokenHolder, _spender, _value);
         emit Approval(_tokenHolder, _spender, _value);
-    }
-
-    /**
-     * @dev Function to check the amount of tokens that an owner allowed to a spender.
-     * @param _owner address The address which owns the funds.
-     * @param _spender address The address which will spend the funds.
-     * @return A uint256 specifying the amount of tokens still available for the spender.
-     */
-    function allowance(address _owner, address _spender) public view returns (uint256) {
-        return allowances.allowanceOf(_owner, _spender);
     }
 
     /**
@@ -81,14 +48,14 @@ contract ModularStandardToken is ModularBasicToken {
      * @param _spender The address which will spend the funds.
      * @param _addedValue The amount of tokens to increase the allowance by.
      */
-    function increaseApproval(address _spender, uint _addedValue) public returns (bool) {
-        _increaseApprovalAllArgs(_spender, _addedValue, msg.sender);
+    function increaseAllowance(address _spender, uint _addedValue) public returns (bool) {
+        _increaseAllowanceAllArgs(_spender, _addedValue, msg.sender);
         return true;
     }
 
-    function _increaseApprovalAllArgs(address _spender, uint256 _addedValue, address _tokenHolder) internal {
-        allowances.addAllowance(_tokenHolder, _spender, _addedValue);
-        emit Approval(_tokenHolder, _spender, allowances.allowanceOf(_tokenHolder, _spender));
+    function _increaseAllowanceAllArgs(address _spender, uint256 _addedValue, address _tokenHolder) internal {
+        _addAllowance(_tokenHolder, _spender, _addedValue);
+        emit Approval(_tokenHolder, _spender, _getAllowance(_tokenHolder, _spender));
     }
 
     /**
@@ -101,18 +68,43 @@ contract ModularStandardToken is ModularBasicToken {
      * @param _spender The address which will spend the funds.
      * @param _subtractedValue The amount of tokens to decrease the allowance by.
      */
-    function decreaseApproval(address _spender, uint _subtractedValue) public returns (bool) {
-        _decreaseApprovalAllArgs(_spender, _subtractedValue, msg.sender);
+    function decreaseAllowance(address _spender, uint _subtractedValue) public returns (bool) {
+        _decreaseAllowanceAllArgs(_spender, _subtractedValue, msg.sender);
         return true;
     }
 
-    function _decreaseApprovalAllArgs(address _spender, uint256 _subtractedValue, address _tokenHolder) internal {
-        uint256 oldValue = allowances.allowanceOf(_tokenHolder, _spender);
+    function _decreaseAllowanceAllArgs(address _spender, uint256 _subtractedValue, address _tokenHolder) internal {
+        uint256 oldValue = _getAllowance(_tokenHolder, _spender);
+        uint256 newValue;
         if (_subtractedValue > oldValue) {
-            allowances.setAllowance(_tokenHolder, _spender, 0);
+            newValue = 0;
         } else {
-            allowances.subAllowance(_tokenHolder, _spender, _subtractedValue);
+            newValue = oldValue - _subtractedValue;
         }
-        emit Approval(_tokenHolder,_spender, allowances.allowanceOf(_tokenHolder, _spender));
+        _setAllowance(_tokenHolder, _spender, newValue);
+        emit Approval(_tokenHolder,_spender, newValue);
+    }
+
+    function allowance(address _who, address _spender) public view returns (uint256) {
+        return _getAllowance(_who, _spender);
+    }
+
+    function _getAllowance(address _who, address _spender) internal view returns (uint256 value) {
+        return _allowance[_who][_spender];
+    }
+
+    function _addAllowance(address _who, address _spender, uint256 _value) internal {
+        _allowance[_who][_spender] = _allowance[_who][_spender].add(_value);
+    }
+
+    function _subAllowance(address _who, address _spender, uint256 _value) internal returns (uint256 newAllowance){
+        newAllowance = _allowance[_who][_spender].sub(_value);
+        if (newAllowance < INFINITE_ALLOWANCE) {
+            _allowance[_who][_spender] = newAllowance;
+        }
+    }
+
+    function _setAllowance(address _who, address _spender, uint256 _value) internal {
+        _allowance[_who][_spender] = _value;
     }
 }

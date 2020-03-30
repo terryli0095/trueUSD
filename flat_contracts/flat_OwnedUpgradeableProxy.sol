@@ -1,90 +1,4 @@
-pragma solidity ^0.4.23;
-
-// File: contracts/Proxy/Proxy.sol
-
-/**
- * @title Proxy
- * @dev Gives the possibility to delegate any call to a foreign implementation.
- */
-contract Proxy {
-    
-    /**
-    * @dev Tells the address of the implementation where every call will be delegated.
-    * @return address of the implementation to which it will be delegated
-    */
-    function implementation() public view returns (address);
-
-    /**
-    * @dev Fallback function allowing to perform a delegatecall to the given implementation.
-    * This function will return whatever the implementation call returns
-    */
-    function() external payable {
-        address _impl = implementation();
-        require(_impl != address(0), "implementation contract not set");
-        
-        assembly {
-            let ptr := mload(0x40)
-            calldatacopy(ptr, 0, calldatasize)
-            let result := delegatecall(gas, _impl, ptr, calldatasize, 0, 0)
-            let size := returndatasize
-            returndatacopy(ptr, 0, size)
-
-            switch result
-            case 0 { revert(ptr, size) }
-            default { return(ptr, size) }
-        }
-    }
-}
-
-// File: contracts/Proxy/UpgradeabilityProxy.sol
-
-/**
- * @title UpgradeabilityProxy
- * @dev This contract represents a proxy where the implementation address to which it will delegate can be upgraded
- */
-contract UpgradeabilityProxy is Proxy {
-    /**
-    * @dev This event will be emitted every time the implementation gets upgraded
-    * @param implementation representing the address of the upgraded implementation
-    */
-    event Upgraded(address indexed implementation);
-
-    // Storage position of the address of the current implementation
-    bytes32 private constant implementationPosition = keccak256("trueUSD.proxy.implementation");
-
-    /**
-    * @dev Tells the address of the current implementation
-    * @return address of the current implementation
-    */
-    function implementation() public view returns (address impl) {
-        bytes32 position = implementationPosition;
-        assembly {
-          impl := sload(position)
-        }
-    }
-
-    /**
-    * @dev Sets the address of the current implementation
-    * @param newImplementation address representing the new implementation to be set
-    */
-    function _setImplementation(address newImplementation) internal {
-        bytes32 position = implementationPosition;
-        assembly {
-          sstore(position, newImplementation)
-        }
-    }
-
-    /**
-    * @dev Upgrades the implementation address
-    * @param newImplementation representing the address of the new implementation to be set
-    */
-    function _upgradeTo(address newImplementation) internal {
-        address currentImplementation = implementation();
-        require(currentImplementation != newImplementation);
-        _setImplementation(newImplementation);
-        emit Upgraded(newImplementation);
-    }
-}
+pragma solidity ^0.5.13;
 
 // File: contracts/Proxy/OwnedUpgradeabilityProxy.sol
 
@@ -92,7 +6,7 @@ contract UpgradeabilityProxy is Proxy {
  * @title OwnedUpgradeabilityProxy
  * @dev This contract combines an upgradeability proxy with basic authorization control functionalities
  */
-contract OwnedUpgradeabilityProxy is UpgradeabilityProxy {
+contract OwnedUpgradeabilityProxy {
     /**
     * @dev Event to show ownership has been transferred
     * @param previousOwner representing the address of the previous owner
@@ -108,8 +22,8 @@ contract OwnedUpgradeabilityProxy is UpgradeabilityProxy {
     event NewPendingOwner(address currentOwner, address pendingOwner);
     
     // Storage position of the owner and pendingOwner of the contract
-    bytes32 private constant proxyOwnerPosition = keccak256("trueUSD.proxy.owner");
-    bytes32 private constant pendingProxyOwnerPosition = keccak256("trueUSD.pending.proxy.owner");
+    bytes32 private constant proxyOwnerPosition = 0x6279e8199720cf3557ecd8b58d667c8edc486bd1cf3ad59ea9ebdfcae0d0dfac;//keccak256("trueUSD.proxy.owner");
+    bytes32 private constant pendingProxyOwnerPosition = 0x8ddbac328deee8d986ec3a7b933a196f96986cb4ee030d86cc56431c728b83f4;//keccak256("trueUSD.pending.proxy.owner");
 
     /**
     * @dev the constructor sets the original owner of the contract to the sender account.
@@ -201,6 +115,49 @@ contract OwnedUpgradeabilityProxy is UpgradeabilityProxy {
     * @param implementation representing the address of the new implementation to be set.
     */
     function upgradeTo(address implementation) external onlyProxyOwner {
-        _upgradeTo(implementation);
+        address currentImplementation;
+        bytes32 position = implementationPosition;
+        assembly {
+            currentImplementation := sload(position)
+        }
+        require(currentImplementation != implementation);
+        assembly {
+          sstore(position, implementation)
+        }
+        emit Upgraded(implementation);
+    }
+    /**
+    * @dev This event will be emitted every time the implementation gets upgraded
+    * @param implementation representing the address of the upgraded implementation
+    */
+    event Upgraded(address indexed implementation);
+
+    // Storage position of the address of the current implementation
+    bytes32 private constant implementationPosition = 0x6e41e0fbe643dfdb6043698bf865aada82dc46b953f754a3468eaa272a362dc7; //keccak256("trueUSD.proxy.implementation");
+
+    function implementation() public view returns (address impl) {
+        bytes32 position = implementationPosition;
+        assembly {
+            impl := sload(position)
+        }
+    }
+
+    /**
+    * @dev Fallback function allowing to perform a delegatecall to the given implementation.
+    * This function will return whatever the implementation call returns
+    */
+    function() external payable {
+        bytes32 position = implementationPosition;
+        
+        assembly {
+            let ptr := mload(0x40)
+            calldatacopy(ptr, returndatasize, calldatasize)
+            let result := delegatecall(gas, sload(position), ptr, calldatasize, returndatasize, returndatasize)
+            returndatacopy(ptr, 0, returndatasize)
+
+            switch result
+            case 0 { revert(ptr, returndatasize) }
+            default { return(ptr, returndatasize) }
+        }
     }
 }

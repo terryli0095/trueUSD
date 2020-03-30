@@ -1,10 +1,11 @@
 import assertRevert from './helpers/assertRevert'
 import expectThrow from './helpers/expectThrow'
-const Controller = artifacts.require("TokenController")
+const Controller = artifacts.require("PreMigrationTokenController")
 const CanDelegate = artifacts.require('CanDelegateMock')
-const TrueUSD = artifacts.require('TrueUSDMock')
+const TrueUSD = artifacts.require('PreMigrationTrueUSDMock')
 const UpgradeHelperMock = artifacts.require("UpgradeHelperMock")
 
+const BN = web3.utils.toBN;
 
 contract('Upgrade Helper', function (accounts) {
     const [_, owner, oneHundred, anotherAccount, thirdAddress] = accounts
@@ -12,7 +13,7 @@ contract('Upgrade Helper', function (accounts) {
 
     describe('upgrade using Upgrade Helper', function(){
         beforeEach(async function () {
-            this.original = await CanDelegate.new(oneHundred, 10*10**18, {from:owner})
+            this.original = await CanDelegate.new(oneHundred, BN(10*10**18), {from:owner})
             this.controller = await Controller.new({from:owner})
             this.token = await TrueUSD.new(owner, 0, {from:owner})
             await this.controller.initialize({from: owner})
@@ -21,12 +22,12 @@ contract('Upgrade Helper', function (accounts) {
             await this.token.transferOwnership(this.helper.address, {from: owner})
             await this.original.transferOwnership(this.controller.address, {from: owner})
             await this.controller.issueClaimOwnership(this.original.address, {from: owner})
-            await this.controller.setTrueUSD(this.original.address, {from: owner})
+            await this.controller.setToken(this.original.address, {from: owner})
             await this.helper.upgrade({from: owner})
         })
 
         it('Controller points to new trueUSD', async function(){
-            const trueUSD = await this.controller.trueUSD.call()
+            const trueUSD = await this.controller.token.call()
             assert.equal(trueUSD, this.token.address)
         })
 
@@ -46,8 +47,8 @@ contract('Upgrade Helper', function (accounts) {
         })
 
         it('token total supply correct', async function(){
-            const totalSupply = Number(await this.token.totalSupply.call())
-            assert.equal(totalSupply, 10*10**18)
+            const totalSupply = await this.token.totalSupply.call()
+            assert(totalSupply.eq(BN(10*10**18)))
         })
         it('token has correct balance and allowance sheet', async function(){
             const balanceSheet = await this.token.balances.call()
@@ -62,7 +63,7 @@ contract('Upgrade Helper', function (accounts) {
         })
         it('new tusd has correct registry', async function(){
             const registry = await this.token.registry.call()
-            assert.equal(registry, '0x0000000000013949f288172bd7e36837bddc7211')
+            assert.equal(registry, web3.utils.toChecksumAddress('0x0000000000013949f288172bd7e36837bddc7211'))
         })
     })
 })
